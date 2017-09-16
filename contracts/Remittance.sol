@@ -17,10 +17,11 @@ contract Remittance is Owned {
     uint fee;
     
     event LogWithdrawal(address _address, uint amount);
-    event LogDeposit(address _address, uint amount, bytes32 hash);
+    event LogDeposit(address _address, address _recipient, uint amount, bytes32 hash);
     
     struct Remitter {
         address owner;
+        address recipient;
         uint balance;
         uint deadline; // Deadline in block number
     }
@@ -33,7 +34,7 @@ contract Remittance is Owned {
     }
     
     // @param passCode The hash of two hashed inputs
-    function deposit(bytes32 passCode, uint deadline) 
+    function deposit(bytes32 passCode, uint deadline, address recipient) 
         payable
         returns (bool)
     {
@@ -51,10 +52,11 @@ contract Remittance is Owned {
         require(remittances[passCode].owner == 0);
         
         remittances[passCode].owner = msg.sender;
+        remittances[passCode].recipient = recipient;
         remittances[passCode].balance = msg.value;
         remittances[passCode].deadline = block.number + deadline;
         
-        LogDeposit(msg.sender, msg.value, passCode);
+        LogDeposit(msg.sender, recipient, msg.value, passCode);
         
         return true;
     }
@@ -76,6 +78,9 @@ contract Remittance is Owned {
             // If the sender is the owner, he can only withdraw after deadline
             require(block.number > deadlineBlock);
         } else {
+            // The caller of this function must be the recipient
+            require(msg.sender == remittances[passwordAttempt].recipient);
+
             // The current block must be before the deadline to withdraw
             require(block.number <= deadlineBlock);    
         }
